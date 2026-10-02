@@ -22,6 +22,13 @@
     .rank-badge-2 { background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%); color: #1e293b; border: 1.5px solid #ffffff; }
     .rank-badge-3 { background: linear-gradient(135deg, #fdba74 0%, #c2410c 100%); color: #7c2d12; border: 1.5px solid #ffedd5; }
     .rank-badge-default { background: rgba(15, 23, 42, 0.75); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.2); }
+    .score-rollover-container { position: relative; display: inline-block; }
+    .score-rollover-container:hover .score-rollover-popup { opacity: 1; visibility: visible; transform: translate(-50%, -6px); }
+    .score-rollover-popup {
+      opacity: 0; visibility: hidden; position: absolute; bottom: 100%; left: 50%;
+      transform: translate(-50%, 0); transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 60; pointer-events: none; width: 220px;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col">
@@ -721,17 +728,34 @@
               <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-slate-800">
                 <div class="flex items-baseline gap-1">
                   <span class="text-xs text-slate-400 font-medium">체감평점</span>
-                  <span class="text-xl font-black ${c.s >= 9.0 ? 'text-emerald-400' : (c.s < 6.0 ? 'text-red-400' : 'text-amber-400')}">
-                    ${c.s.toFixed(1)}
-                  </span>
-                  <span class="text-[10px] text-slate-500">/10</span>
+                  <div class="score-rollover-container cursor-help">
+                    <span class="text-xl font-black ${c.s >= 9.0 ? 'text-emerald-400' : (c.s < 6.0 ? 'text-red-400' : 'text-amber-400')}">${c.s.toFixed(1)}</span>
+                    <span class="text-[10px] text-slate-500">/10</span>
+                    <!-- 롤오버 세부평점 팝업 -->
+                    <div class="score-rollover-popup bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 shadow-2xl text-left text-xs">
+                      <div class="font-black text-white pb-1.5 mb-1.5 border-b border-slate-800 flex items-center justify-between">
+                        <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-chart-simple text-emerald-400"></i> 마스터 5대 지표</span>
+                        <span class="text-emerald-400 font-extrabold">${c.s}점</span>
+                      </div>
+                      <div class="space-y-1.5 text-[11px]">
+                        <div class="flex justify-between items-center"><span class="text-slate-400">코스관리(30%)</span><span class="font-bold text-emerald-400">${c.course || '-'}점</span></div>
+                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-emerald-500 h-1 rounded-full" style="width: ${(c.course || 0)*10}%"></div></div>
+                        <div class="flex justify-between items-center mt-1"><span class="text-slate-400">레이아웃(25%)</span><span class="font-bold text-blue-400">${c.layout || '-'}점</span></div>
+                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-blue-500 h-1 rounded-full" style="width: ${(c.layout || 0)*10}%"></div></div>
+                        <div class="flex justify-between items-center mt-1"><span class="text-slate-400">진행·서비스(20%)</span><span class="font-bold text-purple-400">${c.service || '-'}점</span></div>
+                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-purple-500 h-1 rounded-full" style="width: ${(c.service || 0)*10}%"></div></div>
+                        <div class="flex justify-between items-center mt-1"><span class="text-slate-400">가성비(15%)</span><span class="font-bold text-amber-400">${c.cost || '-'}점</span></div>
+                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-amber-500 h-1 rounded-full" style="width: ${(c.cost || 0)*10}%"></div></div>
+                      </div>
+                      <div class="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2"></div>
+                    </div>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 text-[11px] text-slate-400">
                   <span>관리: <b class="text-slate-200">${c.course}</b></span>
                   <span>레이아웃: <b class="text-slate-200">${c.layout}</b></span>
                   <span>가성비: <b class="text-slate-200">${c.cost}</b></span>
                 </div>
-              </div>
 
               <!-- 하단 액션 버튼 (홈페이지 + 댓글 달기) -->
               <div class="flex items-center gap-2 pt-1">
@@ -795,12 +819,30 @@
             <!-- 3. 위치 -->
             <td class="py-3.5 px-4 w-36 whitespace-nowrap"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.n + ' ' + c.l)}" target="_blank" rel="noopener noreferrer" class="text-slate-300 hover:text-emerald-400 hover:underline flex items-center gap-1.5 whitespace-nowrap"><i class="fa-solid fa-location-dot text-emerald-400 text-xs"></i><span>${c.l}</span></a></td>
             <!-- 4. 평점 -->
-            <td class="py-3.5 px-4 text-center">
-              <div class="inline-flex items-baseline gap-0.5">
-                <span class="text-base font-black ${c.s >= 9.0 ? 'text-emerald-400' : (c.s < 6.0 ? 'text-red-400' : 'text-amber-400')}">
-                  ${c.s.toFixed(1)}
+            <td class="py-3 px-4 w-28 text-center whitespace-nowrap">
+              <div class="score-rollover-container cursor-help">
+                <span class="inline-flex items-center gap-1 font-black text-emerald-400 text-sm bg-emerald-950/70 hover:bg-emerald-900/80 px-2.5 py-1 rounded-xl border border-emerald-800/80 shadow-sm transition">
+                  <i class="fa-solid fa-star text-amber-400 text-xs"></i>
+                  <span>${c.s}</span>
                 </span>
-                <span class="text-[10px] text-slate-500">/10</span>
+                <!-- 롤오버 세부평점 팝업 -->
+                <div class="score-rollover-popup bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 shadow-2xl text-left text-xs">
+                  <div class="font-black text-white pb-1.5 mb-1.5 border-b border-slate-800 flex items-center justify-between">
+                    <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-chart-simple text-emerald-400"></i> 마스터 5대 지표</span>
+                    <span class="text-emerald-400 font-extrabold">${c.s}점</span>
+                  </div>
+                  <div class="space-y-1.5 text-[11px]">
+                    <div class="flex justify-between items-center"><span class="text-slate-400">코스관리(30%)</span><span class="font-bold text-emerald-400">${c.course || '-'}점</span></div>
+                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-emerald-500 h-1 rounded-full" style="width: ${(c.course || 0)*10}%"></div></div>
+                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400">레이아웃(25%)</span><span class="font-bold text-blue-400">${c.layout || '-'}점</span></div>
+                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-blue-500 h-1 rounded-full" style="width: ${(c.layout || 0)*10}%"></div></div>
+                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400">진행·서비스(20%)</span><span class="font-bold text-purple-400">${c.service || '-'}점</span></div>
+                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-purple-500 h-1 rounded-full" style="width: ${(c.service || 0)*10}%"></div></div>
+                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400">가성비(15%)</span><span class="font-bold text-amber-400">${c.cost || '-'}점</span></div>
+                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-amber-500 h-1 rounded-full" style="width: ${(c.cost || 0)*10}%"></div></div>
+                  </div>
+                  <div class="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2"></div>
+                </div>
               </div>
             </td>
             <!-- 5. 댓글 링크 -->
