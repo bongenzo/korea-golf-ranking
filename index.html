@@ -43,7 +43,7 @@
         <div>
           <div class="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2 text-white">
             대한민국 골프장 랭킹
-            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">전국 540개소 전수</span>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">전국 546개소 전수 (매주 금요일 실시간 자동 연동)</span>
           </div>
           <div class="text-xs text-slate-400 mt-0.5">시그니처 뷰와 함께 보는 천상계 드림 코스부터 기피 코스까지</div>
         </div>
@@ -619,6 +619,94 @@
       return 'rank-badge-default';
     }
 
+    // ==========================================
+    // 구글 스프레드시트 마스터 DB 매주 금요일 실시간 자동 연동
+    // ==========================================
+    const MASTER_SHEET_ID = "1HYaXO_NH_5dzJo_j5BEIUoXzL3NIxqKUbdTd3Gr23FY";
+    const MASTER_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/" + MASTER_SHEET_ID + "/gviz/tq?tqx=out:csv";
+
+    function parseGoogleSheetCsv(csvText) {
+      const lines = [];
+      let row = [], inQuotes = false, current = '';
+      for (let i = 0; i < csvText.length; i++) {
+        const char = csvText[i];
+        const nextChar = csvText[i + 1];
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (char === ',' && !inQuotes) {
+          row.push(current.trim());
+          current = '';
+        } else if ((char === '\r' || char === '\n') && !inQuotes) {
+          if (current || row.length > 0) { row.push(current.trim()); current = ''; }
+          if (row.length > 0) { lines.push(row); row = []; }
+          if (char === '\r' && nextChar === '\n') i++;
+        } else {
+          current += char;
+        }
+      }
+      if (current || row.length > 0) { row.push(current.trim()); lines.push(row); }
+      return lines;
+    }
+
+    function convertCsvToCourses(csvText) {
+      const rows = parseGoogleSheetCsv(csvText);
+      if (!rows || rows.length < 2) return null;
+      const dataRows = rows.slice(1);
+      const existingMap = {};
+      allCourses.forEach(c => { existingMap[c.n] = { hp: c.hp, img: c.img }; });
+
+      const parsedCourses = dataRows.map((r, idx) => {
+        const score = parseFloat(r[17] || r[6] || 8.0);
+        let tier = 'B';
+        if (score >= 9.5) tier = 'GOD';
+        else if (score >= 9.0) tier = 'S';
+        else if (score >= 8.0) tier = 'A';
+        else if (score >= 7.0) tier = 'B';
+        else if (score >= 6.0) tier = 'C';
+        else tier = 'D';
+
+        const name = r[2] || '';
+        const ex = existingMap[name] || {};
+        return {
+          r: idx + 1,
+          n: name,
+          l: r[1] || '',
+          reg: r[0] || '',
+          s: parseFloat(score.toFixed(1)),
+          t: tier,
+          course: parseFloat(parseFloat(r[8] || 9.0).toFixed(1)),
+          layout: parseFloat(parseFloat(r[9] || 9.0).toFixed(1)),
+          service: parseFloat(parseFloat(r[10] || 9.0).toFixed(1)),
+          cost: parseFloat(parseFloat(r[12] || 8.0).toFixed(1)),
+          facility: parseFloat(parseFloat(r[11] || 9.0).toFixed(1)),
+          k: r[13] || '',
+          tp: r[3] || '대중제',
+          hp: ex.hp || ("https://search.naver.com/search.naver?query=" + encodeURIComponent(name + " 공식홈페이지")),
+          img: ex.img || "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?auto=format&fit=crop&w=800&q=80"
+        };
+      });
+      parsedCourses.sort((a, b) => b.s - a.s);
+      parsedCourses.forEach((c, idx) => c.r = idx + 1);
+      return parsedCourses;
+    }
+
+    async function syncMasterDbFromGoogleSheet() {
+      try {
+        const res = await fetch(MASTER_SHEET_CSV_URL);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const csvText = await res.text();
+        const updated = convertCsvToCourses(csvText);
+        if (updated && updated.length >= 500) {
+          allCourses = updated;
+          renderContent();
+          console.log("[Live Sync] Google Sheet master DB synced successfully:", allCourses.length);
+        }
+      } catch (err) {
+        console.warn("[Live Sync] Using embedded cached database:", err.message);
+      }
+    }
+
     // 데이터 렌더링
     function renderContent() {
       const filtered = allCourses.filter(c => {
@@ -897,6 +985,7 @@
 
     // 최초 렌더링
     renderContent();
+    syncMasterDbFromGoogleSheet();
   </script>
 </body>
 </html>
