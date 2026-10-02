@@ -503,11 +503,12 @@
     let currentTier = 'ALL';
     let currentRegion = 'ALL';
     let searchQuery = '';
-    let viewMode = 'table // 'table' (기본 컴팩트 리스트 뷰)
+    let viewMode = 'table'; // (기본 컴팩트 리스트 뷰)
     let selectedCourse = null;
 
     // 구글 스프레드시트 Web App URL (배포 후 URL을 설정하면 실시간 저장)
     const COMMENT_API_URL = "https://script.google.com/macros/s/AKfycbx0JDdudgm3-pAzy9MOaLYNEiZyILWQGR27c4DWin90-5WOybX7-YynQM-8siU-eKTV/exec";
+    let GOOGLE_SHEETS_API_URL = localStorage.getItem('kgolf_gas_url') || COMMENT_API_URL;
 
     // 기본 시드 댓글 데이터
     const defaultComments = {
