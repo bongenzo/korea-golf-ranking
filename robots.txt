@@ -1,1 +1,4 @@
 #DaumWebMasterTool:c9b3e186224694a3bd01e06cbd1de73b971bd43aa8447681499e41ef46c32594:TjfWRIg4AvRIXkF+EGam5Q==
+User-agent: *
+Allow: /
+Sitemap: https://golf123.co.kr/sitemap.xml
