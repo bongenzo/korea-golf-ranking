@@ -146,16 +146,6 @@
 
         <!-- 우측 컨트롤: 권역, 검색창, 뷰 모드 토글 -->
         <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <!-- 뷰 모드 토글 버튼 (카드 매거진 뷰 vs 리스트 테이블 뷰) -->
-          <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-700">
-            <button id="view-card-btn" onclick="setViewMode('card')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-500 text-slate-950 shadow-sm">
-              <i class="fa-solid fa-table-cells-large"></i><span>매거진 카드</span>
-            </button>
-            <button id="view-table-btn" onclick="setViewMode('table')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white">
-              <i class="fa-solid fa-list"></i><span>컴팩트 리스트</span>
-            </button>
-          </div>
-
           <!-- 권역 선택 -->
           <select id="regionFilterSelect" onchange="filterRegion(this.value)" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs font-medium rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             <option value="ALL">전국 권역 (전체)</option>
@@ -184,11 +174,6 @@
         <div class="text-slate-400">
           <span class="inline-flex items-center gap-1 text-emerald-400 font-bold"><i class="fa-solid fa-arrow-up-right-from-square"></i> 골프장명 클릭 시 공식 홈페이지로 연결됩니다.</span>
         </div>
-      </div>
-
-      <!-- [A] 카드형 매거진 뷰 컨테이너 (기본 활성화) -->
-      <div id="cardViewContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- JS 동적 생성 -->
       </div>
 
       <!-- [B] 컴팩트 테이블 뷰 컨테이너 (토글 시 노출) -->
@@ -518,7 +503,7 @@
     let currentTier = 'ALL';
     let currentRegion = 'ALL';
     let searchQuery = '';
-    let viewMode = 'table'; // 'table' (기본 컴팩트 리스트 뷰)
+    let viewMode = 'table // 'table' (기본 컴팩트 리스트 뷰)
     let selectedCourse = null;
 
     // 구글 스프레드시트 Web App URL (배포 후 URL을 설정하면 실시간 저장)
@@ -601,28 +586,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // 뷰 모드 토글 (카드 vs 리스트)
-    function setViewMode(mode) {
-      viewMode = mode;
-      const cardContainer = document.getElementById('cardViewContainer');
-      const tableContainer = document.getElementById('tableViewContainer');
-      const cardBtn = document.getElementById('view-card-btn');
-      const tableBtn = document.getElementById('view-table-btn');
-
-      if (mode === 'card') {
-        cardContainer.classList.remove('hidden');
-        tableContainer.classList.add('hidden');
-        cardBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-500 text-slate-950 shadow-sm';
-        tableBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
-      } else {
-        cardContainer.classList.add('hidden');
-        tableContainer.classList.remove('hidden');
-        tableBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-500 text-slate-950 shadow-sm';
-        cardBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
-      }
-      renderContent();
-    }
-
     // 티어 뱃지 및 이름 매핑
     function getTierBadgeClass(tier) {
       switch(tier) {
@@ -667,115 +630,58 @@
 
       document.getElementById('resultCount').textContent = filtered.length;
 
-      if (viewMode === 'card') {
-        renderCardView(filtered);
-      } else {
-        renderTableView(filtered);
-      }
+      renderTableView(filtered);
     }
 
-    // [A] 카드형 매거진 뷰 렌더러
-    function renderCardView(list) {
-      const container = document.getElementById('cardViewContainer');
-      if (list.length === 0) {
-        container.innerHTML = '<div class="col-span-full py-16 text-center text-slate-500 font-medium">검색 조건에 맞는 골프장이 없습니다.</div>';
-        return;
+    function getRadarChartSvg(c) {
+      const factors = [
+        { name: '코스관리', val: c.course || 9.0 },
+        { name: '코스레이아웃', val: c.layout || 9.0 },
+        { name: '진행·서비스', val: c.service || 9.0 },
+        { name: '가성비', val: c.cost || 8.0 },
+        { name: '부대시설', val: c.facility || 9.0 }
+      ];
+      const cx = 110, cy = 105, maxR = 60, numLevels = 4;
+      let webs = '';
+      for (let l = 1; l <= numLevels; l++) {
+        const r = (maxR / numLevels) * l;
+        const pts = factors.map((_, i) => {
+          const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+          return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
+        }).join(' ');
+        webs += `<polygon points="${pts}" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="${l === numLevels ? 'none' : '2,2'}"/>`;
       }
-
-      container.innerHTML = list.map(c => {
-        const comments = getComments(c.n);
-        const commentCount = comments.length;
-        const tierBadge = `<span class="text-[11px] font-black px-2.5 py-0.5 rounded-full ${getTierBadgeClass(c.t)}">${getTierName(c.t)}</span>`;
-        const rankBadge = `<span class="text-xs font-black px-2.5 py-0.5 rounded-full ${getRankBadgeClass(c.r)}">${c.r}위</span>`;
-        
-        const cardBorder = c.t === 'D' ? 'border-red-600/80 ring-1 ring-red-500/50' : (c.t === 'GOD' ? 'border-emerald-500/60 ring-1 ring-emerald-400/40' : 'border-slate-800');
-
-        return `
-          <div class="relative rounded-3xl overflow-hidden shadow-2xl ${cardBorder} group transition-all duration-300 hover:shadow-emerald-950/50 hover:-translate-y-1.5 h-[400px] flex flex-col justify-between p-6 bg-slate-950">
-            <!-- 배경 이미지 (시그니처 뷰) -->
-            <img src="${c.img}" alt="${c.n} 대표 시그니처 뷰" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out opacity-65">
-            
-            <!-- 그라데이션 오버레이 -->
-            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-black/30 group-hover:via-slate-950/60 transition-colors"></div>
-
-            <!-- 카드 상단 정보: 순위, 티어, 위치, 구분 -->
-            <div class="relative z-10 flex items-start justify-between gap-2">
-              <div class="flex items-center gap-1.5">
-                ${rankBadge}
-                ${tierBadge}
-              </div>
-              <div class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-950/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700/60">
-                <i class="fa-solid fa-location-dot text-emerald-400 text-[10px]"></i>
-                <span class="font-semibold text-white">${c.l}</span>
-                <span class="text-slate-400">· ${c.tp}</span>
-              </div>
-            </div>
-
-            <!-- 카드 하단 정보: 골프장명(홈페이지 링크), 평점, 키워드, 댓글 버튼 -->
-            <div class="relative z-10 space-y-3">
-              <!-- 골프장명 (공식 홈페이지 링크) -->
-              <div>
-                <a href="${c.hp}" target="_blank" rel="noopener noreferrer" 
-                   class="text-xl sm:text-2xl font-black text-white hover:text-emerald-300 transition-colors inline-flex items-center gap-2 group/title" 
-                   title="공식 홈페이지 바로가기 (새창)">
-                  <span class="leading-tight">${c.n}</span>
-                  <i class="fa-solid fa-arrow-up-right-from-square text-xs text-emerald-400 opacity-70 group-hover/title:opacity-100 group-hover/title:translate-x-0.5 group-hover/title:-translate-y-0.5 transition-all"></i>
-                </a>
-                ${c.k ? `<div class="text-[11px] text-slate-300/80 mt-1 line-clamp-1">#${c.k.split(', ').slice(0, 3).join(' #')}</div>` : ''}
-              </div>
-
-              <!-- 평점 및 세부 지표 -->
-              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-slate-800">
-                <div class="flex items-baseline gap-1">
-                  <span class="text-xs text-slate-400 font-medium">체감평점</span>
-                  <div class="score-rollover-container cursor-help">
-                    <span class="text-xl font-black ${c.s >= 9.0 ? 'text-emerald-400' : (c.s < 6.0 ? 'text-red-400' : 'text-amber-400')}">${c.s.toFixed(1)}</span>
-                    <span class="text-[10px] text-slate-500">/10</span>
-                    <!-- 롤오버 세부평점 팝업 -->
-                    <div class="score-rollover-popup bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 shadow-2xl text-left text-xs">
-                      <div class="font-black text-white pb-1.5 mb-1.5 border-b border-slate-800 flex items-center justify-between">
-                        <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-chart-simple text-emerald-400"></i> 마스터 5대 지표</span>
-                        <span class="text-emerald-400 font-extrabold">${c.s}점</span>
-                      </div>
-                      <div class="space-y-1.5 text-[11px]">
-                        <div class="flex justify-between items-center"><span class="text-slate-400">코스관리(30%)</span><span class="font-bold text-emerald-400">${c.course || '-'}점</span></div>
-                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-emerald-500 h-1 rounded-full" style="width: ${(c.course || 0)*10}%"></div></div>
-                        <div class="flex justify-between items-center mt-1"><span class="text-slate-400">레이아웃(25%)</span><span class="font-bold text-blue-400">${c.layout || '-'}점</span></div>
-                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-blue-500 h-1 rounded-full" style="width: ${(c.layout || 0)*10}%"></div></div>
-                        <div class="flex justify-between items-center mt-1"><span class="text-slate-400">진행·서비스(20%)</span><span class="font-bold text-purple-400">${c.service || '-'}점</span></div>
-                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-purple-500 h-1 rounded-full" style="width: ${(c.service || 0)*10}%"></div></div>
-                        <div class="flex justify-between items-center mt-1"><span class="text-slate-400">가성비(15%)</span><span class="font-bold text-amber-400">${c.cost || '-'}점</span></div>
-                        <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-amber-500 h-1 rounded-full" style="width: ${(c.cost || 0)*10}%"></div></div>
-                      </div>
-                      <div class="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2"></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 text-[11px] text-slate-400">
-                  <span>관리: <b class="text-slate-200">${c.course}</b></span>
-                  <span>레이아웃: <b class="text-slate-200">${c.layout}</b></span>
-                  <span>가성비: <b class="text-slate-200">${c.cost}</b></span>
-                </div>
-
-              <!-- 하단 액션 버튼 (홈페이지 + 댓글 달기) -->
-              <div class="flex items-center gap-2 pt-1">
-                <a href="${c.hp}" target="_blank" rel="noopener noreferrer" 
-                   class="flex-1 py-2 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-bold text-center border border-slate-700 transition flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-globe text-[11px] text-emerald-400"></i>
-                  <span>홈페이지</span>
-                </a>
-                <button onclick="openModal('${c.n.replace(/'/g, "\\'")}')" 
-                        class="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black text-center transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20">
-                  <i class="fa-regular fa-comment-dots text-sm"></i>
-                  <span>후기·댓글 ${commentCount > 0 ? `(${commentCount})` : '작성'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      let axes = '';
+      factors.forEach((_, i) => {
+        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        const x2 = (cx + maxR * Math.cos(angle)).toFixed(1);
+        const y2 = (cy + maxR * Math.sin(angle)).toFixed(1);
+        axes += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#334155" stroke-width="1"/>`;
+      });
+      const dataPts = factors.map((f, i) => {
+        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        const r = maxR * (f.val / 10);
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+      });
+      const polygonPts = dataPts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      let dots = '';
+      dataPts.forEach(p => {
+        dots += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#10b981" stroke="#ffffff" stroke-width="1"/>`;
+      });
+      let labels = '';
+      factors.forEach((f, i) => {
+        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        const labelR = maxR + 18;
+        const lx = cx + labelR * Math.cos(angle);
+        const ly = cy + labelR * Math.sin(angle);
+        let anchor = 'middle';
+        if (Math.abs(Math.cos(angle)) > 0.3) {
+          anchor = Math.cos(angle) > 0 ? 'start' : 'end';
+        }
+        labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="central" fill="#94a3b8" font-size="9" font-weight="600">${f.name} <tspan fill="#10b981" font-weight="800">${f.val}</tspan></text>`;
+      });
+      return `<svg viewBox="0 0 220 210" class="w-full h-auto my-1 overflow-visible">${webs}${axes}<polygon points="${polygonPts}" fill="rgba(16, 185, 129, 0.35)" stroke="#10b981" stroke-width="2"/>${dots}${labels}</svg>`;
     }
-
     // [B] 컴팩트 테이블 뷰 렌더러
     function renderTableView(list) {
       const tbody = document.getElementById('golfTableBody');
@@ -826,21 +732,12 @@
                   <span>${c.s}</span>
                 </span>
                 <!-- 롤오버 세부평점 팝업 -->
-                <div class="score-rollover-popup bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 shadow-2xl text-left text-xs">
+                <div class="score-rollover-popup bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 shadow-2xl text-left text-xs" style="width: 250px;">
                   <div class="font-black text-white pb-1.5 mb-1.5 border-b border-slate-800 flex items-center justify-between">
-                    <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-chart-simple text-emerald-400"></i> 마스터 5대 지표</span>
+                    <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-chart-pie text-emerald-400"></i> 마스터 5대 지표</span>
                     <span class="text-emerald-400 font-extrabold">${c.s}점</span>
                   </div>
-                  <div class="space-y-1.5 text-[11px]">
-                    <div class="flex justify-between items-center"><span class="text-slate-400">코스관리(30%)</span><span class="font-bold text-emerald-400">${c.course || '-'}점</span></div>
-                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-emerald-500 h-1 rounded-full" style="width: ${(c.course || 0)*10}%"></div></div>
-                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400">레이아웃(25%)</span><span class="font-bold text-blue-400">${c.layout || '-'}점</span></div>
-                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-blue-500 h-1 rounded-full" style="width: ${(c.layout || 0)*10}%"></div></div>
-                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400">진행·서비스(20%)</span><span class="font-bold text-purple-400">${c.service || '-'}점</span></div>
-                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-purple-500 h-1 rounded-full" style="width: ${(c.service || 0)*10}%"></div></div>
-                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400">가성비(15%)</span><span class="font-bold text-amber-400">${c.cost || '-'}점</span></div>
-                    <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div class="bg-amber-500 h-1 rounded-full" style="width: ${(c.cost || 0)*10}%"></div></div>
-                  </div>
+                  ${getRadarChartSvg(c)}
                   <div class="w-2.5 h-2.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2"></div>
                 </div>
               </div>
