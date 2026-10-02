@@ -564,13 +564,14 @@
             if (r.length < 8) return;
             const courseName = (r[2] || '').trim();
             const status = (r[8] || '승인').trim();
-            if (status === '승인' && courseName) {
+            const reviewText = (r[7] || '').trim();
+            if (status === '승인' && courseName && reviewText) {
               if (!map[courseName]) map[courseName] = [];
               map[courseName].push({
                 author: (r[4] || '골퍼').trim(),
                 score: parseInt(r[5]) || 10,
                 date: (r[6] || r[1] || '').slice(0, 7),
-                text: (r[7] || '').trim()
+                text: reviewText
               });
             }
           });
@@ -1007,10 +1008,14 @@
               courseName: selectedCourse.n,
               author: author,
               nickname: author,
+              score: score,
               rating: score,
+              visitDate: dateStr,
+              date: dateStr,
+              text: text,
               comment: text,
               content: text,
-              visitDate: dateStr
+              review: text
             })
           });
           setTimeout(fetchCommentsFromCloud, 2000);
