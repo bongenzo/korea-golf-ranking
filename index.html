@@ -393,7 +393,7 @@
             <span class="text-slate-600">|</span>
             <span id="cloudStatusBadge" class="inline-flex items-center gap-1 text-[11px] text-emerald-400">
               <i class="fa-solid fa-cloud"></i>
-              <span id="cloudStatusText">로컬 & 시트 연동 지원</span>
+              <span id="cloudStatusText"></span>
             </span>
           </div>
         </div>
@@ -419,7 +419,7 @@
             <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
               <i class="fa-solid fa-pen-to-square text-emerald-400"></i> 방문자 한줄평 / 후기 작성
             </h4>
-            <span class="text-[10px] text-slate-500">*작성 시 즉시 반영</span>
+            <span class="text-[10px] text-slate-500"></span>
           </div>
           <div class="space-y-2.5">
             <div class="flex gap-2">
@@ -509,6 +509,10 @@
     // 구글 스프레드시트 Web App URL (배포 후 URL을 설정하면 실시간 저장)
     const COMMENT_API_URL = "https://script.google.com/macros/s/AKfycbx8d9dBVr_xfCK583UVdPxeC8S6-piSx6REwPnOR038VYPs2JRAcnspINmbE0TRwzgcVg/exec";
     let GOOGLE_SHEETS_API_URL = localStorage.getItem('kgolf_gas_url') || COMMENT_API_URL;
+    // 구글 스프레드시트 댓글 DB (실시간 전역 조회 연동)
+    const COMMENT_SHEET_ID = "1r420NUb2fjXuPKshUq1YB0LQvWNR-BZEh7x_Z35t3F0";
+    const COMMENT_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/" + COMMENT_SHEET_ID + "/gviz/tq?tqx=out:csv";
+    let cloudComments = {}; // 구글 시트에서 실시간 불러온 전체 방문자 댓글 캐시
 
     // 기본 시드 댓글 데이터
     const defaultComments = {
@@ -525,13 +529,62 @@
     };
 
     function getComments(courseName) {
+      const cloudList = cloudComments[courseName] || [];
+      const localList = [];
       const stored = localStorage.getItem('kgolf_comments_' + courseName);
       if (stored) {
-        try { return JSON.parse(stored); } catch(e) {}
+        try { localList.push(...JSON.parse(stored)); } catch(e) {}
       }
-      return defaultComments[courseName] || [];
+      const defaultList = defaultComments[courseName] || [];
+
+      // 병합 및 중복 제거 (작성자 + 내용 기준)
+      const combined = [...localList, ...cloudList, ...defaultList];
+      const unique = [];
+      const seen = new Set();
+      combined.forEach(c => {
+        const key = (c.author || '') + '_' + (c.text || '');
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(c);
+        }
+      });
+      return unique;
     }
 
+    // 구글 시트에서 전체 방문자 댓글 실시간 동기화
+    async function fetchCommentsFromCloud() {
+      try {
+        const res = await fetch(COMMENT_SHEET_CSV_URL);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const csv = await res.text();
+        const rows = parseGoogleSheetCsv(csv);
+        if (rows && rows.length > 1) {
+          const map = {};
+          rows.slice(1).forEach(r => {
+            if (r.length < 8) return;
+            const courseName = (r[2] || '').trim();
+            const status = (r[8] || '승인').trim();
+            if (status === '승인' && courseName) {
+              if (!map[courseName]) map[courseName] = [];
+              map[courseName].push({
+                author: (r[4] || '골퍼').trim(),
+                score: parseInt(r[5]) || 10,
+                date: (r[6] || r[1] || '').slice(0, 7),
+                text: (r[7] || '').trim()
+              });
+            }
+          });
+          cloudComments = map;
+          renderContent();
+          if (selectedCourse) {
+            renderModalComments();
+          }
+          console.log('[Comments Cloud] 구글 시트 댓글 실시간 동기화 완료');
+        }
+      } catch (err) {
+        console.warn('[Comments Cloud] 구글 시트 댓글 실시간 동기화 대기 (로컬 캐시 사용):', err.message);
+      }
+    }
     function saveComment(courseName, commentObj) {
       const list = getComments(courseName);
       list.unshift(commentObj);
@@ -874,6 +927,7 @@
       if (!course) return;
       selectedCourse = course;
 
+      fetchCommentsFromCloud();
       document.getElementById('modalRankBadge').textContent = `${course.r}위`;
       document.getElementById('modalTierBadge').textContent = getTierName(course.t);
       document.getElementById('modalTierBadge').className = `text-xs px-2.5 py-0.5 rounded-full font-bold ${getTierBadgeClass(course.t)}`;
@@ -959,6 +1013,7 @@
               visitDate: dateStr
             })
           });
+          setTimeout(fetchCommentsFromCloud, 2000);
         } catch (err) {
           console.warn('[Cloud Sync] Failed to send comment to Google Sheets:', err);
         }
@@ -986,6 +1041,7 @@
     // 최초 렌더링
     renderContent();
     syncMasterDbFromGoogleSheet();
+    fetchCommentsFromCloud();
   </script>
 </body>
 </html>
